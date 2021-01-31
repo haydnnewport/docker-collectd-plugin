@@ -41,7 +41,7 @@ def _c(c):
     argument is a string, it is assumed to be the container's ID and only the
     first 7 digits will be returned. If it's a dictionary, the string returned
     is <7-digit ID>/<name>."""
-    if type(c) == str or type(c) == unicode:
+    if type(c) == str or type(c) == str:
         return c[:7]
     return '{id}/{name}'.format(id=c['Id'][:7], name=c['Name'])
 
@@ -81,7 +81,7 @@ class BlkioStats(Stats):
     @classmethod
     def read(cls, container, stats, t):
         blkio_stats = stats['blkio_stats']
-        for key, values in blkio_stats.items():
+        for key, values in list(blkio_stats.items()):
             # Block IO stats are reported by block device (with major/minor
             # numbers). We need to group and report the stats of each block
             # device independently.
@@ -94,7 +94,7 @@ class BlkioStats(Stats):
                     device_stats[k] = []
                 device_stats[k].append(value['value'])
 
-            for type_instance, values in device_stats.items():
+            for type_instance, values in list(device_stats.items()):
                 if len(values) == 5:
                     cls.emit(container, 'blkio', values,
                              type_instance=type_instance, t=t)
@@ -156,10 +156,10 @@ class MemoryStats(Stats):
                   mem_stats['usage']]
         cls.emit(container, 'memory.usage', values, t=t)
 
-        for key, value in (mem_stats.get('stats') or {}).items():
+        for key, value in list((mem_stats.get('stats') or {}).items()):
             cls.emit(container, 'memory.stats', [value],
                      type_instance=key, t=t)
-        
+
         mem_usage_no_cache = mem_stats['usage'] - mem_stats['stats']['cache']
         mem_percent = 100.0 * mem_usage_no_cache / mem_stats['limit']
         cls.emit(container, 'memory.percent', ["%.2f" % mem_percent], t=t)
@@ -210,15 +210,15 @@ class ContainerStats(threading.Thread):
                     if not self._feed:
                         self._feed = self._client.stats(self._container,
                                                         decode=True)
-                    self._stats = self._feed.next()
+                    self._stats = next(self._feed)
                 else:
-                    self._stats = self._client.stats(self._container,
-                                                     decode=True, stream=False)
+                    self._stats = self._client.stats(self._container, stream=False)
                 # Reset failure count on successfull read from the stats API.
                 failures = 0
-            except Exception, e:
+            except Exception as e:
                 collectd.warning('Error reading stats from {container}: {msg}'
                                  .format(container=_c(self._container), msg=e))
+                collectd.exception(e)
 
                 # If we encounter a failure, wait a second before retrying and
                 # mark the failures. After three consecutive failures, we'll
@@ -311,7 +311,7 @@ class DockerPlugin:
 
         # Terminate stats gathering threads for containers that are not running
         # anymore.
-        for cid in set(self.stats) - set(map(lambda c: c['Id'], containers)):
+        for cid in set(self.stats) - set([c['Id'] for c in containers]):
             self.stats[cid].stop = True
             del self.stats[cid]
 
@@ -334,7 +334,7 @@ class DockerPlugin:
                 t = stats['read']
                 for klass in self.CLASSES:
                     klass.read(container, stats, t)
-            except Exception, e:
+            except Exception as e:
                 collectd.warning(('Error getting stats for container '
                                   '{container}: {msg}')
                                  .format(container=_c(container), msg=e))
@@ -352,18 +352,18 @@ if __name__ == '__main__':
             identifier += '/' + self.type
             if getattr(self, 'type_instance', None):
                 identifier += '-' + self.type_instance
-            print 'PUTVAL', identifier, \
-                  ':'.join(map(str, [int(self.time)] + self.values))
+            print('PUTVAL', identifier, \
+                  ':'.join(map(str, [int(self.time)] + self.values)))
 
     class ExecCollectd:
         def Values(self):
             return ExecCollectdValues()
 
         def warning(self, msg):
-            print 'WARNING:', msg
+            print('WARNING:', msg)
 
         def info(self, msg):
-            print 'INFO:', msg
+            print('INFO:', msg)
 
         def register_read(self, docker_plugin):
             pass
