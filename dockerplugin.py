@@ -259,7 +259,7 @@ class DockerPlugin:
     # The stats endpoint is only supported by API >= 1.17
     MIN_DOCKER_API_VERSION = '1.21'
 
-    CLASSES = [NetworkStats, BlkioStats, CpuStats, MemoryStats]
+    CLASSES = [NetworkStats, CpuStats, MemoryStats]
 
     def __init__(self, docker_url=None):
         self.docker_url = docker_url or DockerPlugin.DEFAULT_BASE_URL
