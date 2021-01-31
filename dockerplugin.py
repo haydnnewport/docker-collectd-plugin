@@ -144,8 +144,9 @@ class CpuStats(Stats):
 class NetworkStats(Stats):
     @classmethod
     def read(cls, container, stats, t):
-        items = sorted(stats['network'].items())
-        cls.emit(container, 'network.usage', [x[1] for x in items], t=t)
+        networks = sorted(stats['networks'].items())
+        for ifname, network in networks:
+            cls.emit(container, 'network.usage', [x[1] for x in network.items()], t=t, type_instance=ifname)
 
 
 class MemoryStats(Stats):
@@ -256,7 +257,7 @@ class DockerPlugin:
     DEFAULT_DOCKER_TIMEOUT = 5
 
     # The stats endpoint is only supported by API >= 1.17
-    MIN_DOCKER_API_VERSION = '1.17'
+    MIN_DOCKER_API_VERSION = '1.21'
 
     CLASSES = [NetworkStats, BlkioStats, CpuStats, MemoryStats]
 
@@ -280,7 +281,7 @@ class DockerPlugin:
                 self.timeout = int(node.values[0])
 
     def init_callback(self):
-        self.client = docker.Client(
+        self.client = docker.APIClient(
             base_url=self.docker_url,
             version=DockerPlugin.MIN_DOCKER_API_VERSION)
         self.client.timeout = self.timeout
